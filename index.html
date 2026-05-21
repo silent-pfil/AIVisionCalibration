@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Visual Calibration Protocol V1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #0d1b2a;
+    --blue:   #1a4a6e;
+    --lblue:  #2e86c1;
+    --cyan:   #00c2e0;
+    --white:  #f4f6f8;
+    --gray:   #8a9bb0;
+    --lgray:  #1e2d3d;
+    --border: rgba(0,194,224,0.15);
+    --mono:   'Space Mono', monospace;
+    --sans:   'Inter', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,194,224,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,194,224,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    position: sticky; top: 0;
+    background: rgba(13,27,42,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  header .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+  nav { display: flex; gap: 28px; }
+  nav a {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--gray);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--cyan); }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 100px 0 80px;
+    text-align: center;
+  }
+  .hero-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    border-radius: 2px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--white);
+    margin-bottom: 12px;
+  }
+  h1 span { color: var(--cyan); }
+  .hero-sub {
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--gray);
+    font-weight: 300;
+    max-width: 580px;
+    margin: 0 auto 48px;
+    line-height: 1.6;
+  }
+  .hero-meta {
+    display: flex; gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .hero-meta-item {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--gray);
+    text-transform: uppercase;
+  }
+  .hero-meta-item strong {
+    display: block;
+    color: var(--white);
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.2;
+    margin: 20px 0;
+  }
+
+  /* ── ABSTRACT ── */
+  .abstract {
+    padding: 64px 0;
+    border-top: 1px solid var(--border);
+  }
+  .abstract blockquote {
+    border-left: 2px solid var(--cyan);
+    padding: 20px 28px;
+    background: var(--lgray);
+    margin: 32px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--cyan);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* ── SECTION TITLES ── */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  h2 {
+    font-family: var(--mono);
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 20px;
+    line-height: 1.3;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--lblue);
+    margin-bottom: 12px;
+    margin-top: 32px;
+  }
+  p {
+    color: #b0bec5;
+    font-size: 15px;
+    margin-bottom: 16px;
+    font-weight: 300;
+  }
+
+  /* ── PHASES ── */
+  .phases { padding: 64px 0; border-top: 1px solid var(--border); }
+  .phase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin: 40px 0;
+  }
+  .phase-card {
+    background: var(--lgray);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .phase-card:hover {
+    border-color: rgba(0,194,224,0.4);
+    transform: translateY(-2px);
+  }
+  .phase-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+  }
+  .phase-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    margin-bottom: 12px;
+  }
+  .phase-card h3 {
+    font-size: 16px;
+    color: var(--white);
+    margin-top: 0;
+    margin-bottom: 10px;
+  }
+  .phase-card p {
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  .phase-stat {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gray);
+    letter-spacing: 0.1em;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+  .phase-stat span { color: var(--cyan); }
+
+  /* ── DATA TABLE ── */
+  .data-section { padding: 64px 0; border-top: 1px solid var(--border); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+    margin: 24px 0;
+  }
+  th {
+    background: var(--blue);
+    color: var(--white);
+    padding: 10px 14px;
+    text-align: left;
+    letter-spacing: 0.1em;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #b0bec5;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(0,194,224,0.04); }
+  td:first-child { color: var(--white); }
+
+  /* ── FINDINGS ── */
+  .findings { padding: 64px 0; border-top: 1px solid var(--border); }
+  .finding-list {
+    list-style: none;
+    margin: 24px 0;
+  }
+  .finding-list li {
+    padding: 14px 0 14px 24px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    font-size: 14px;
+    color: #b0bec5;
+    line-height: 1.6;
+  }
+  .finding-list li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--cyan);
+    font-family: var(--mono);
+  }
+  .finding-list li strong { color: var(--white); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    background: var(--lgray);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    padding: 24px 28px;
+    margin: 32px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout p {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--cyan);
+    margin: 0;
+    line-height: 1.8;
+  }
+
+  /* ── VIDEOS ── */
+  .videos { padding: 64px 0; border-top: 1px solid var(--border); }
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .video-card {
+    background: var(--lgray);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .video-card:hover { border-color: rgba(0,194,224,0.4); }
+  .video-card a { display: block; text-decoration: none; color: inherit; }
+  .video-card a:hover .video-thumb { background: linear-gradient(135deg, #1a6a9e, #0d1b2a); }
+  .video-thumb {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: linear-gradient(135deg, var(--blue), var(--navy));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--cyan);
+    position: relative;
+    overflow: hidden;
+  }
+  .video-thumb::after {
+    content: '▶';
+    position: absolute;
+    font-size: 28px;
+    color: rgba(255,255,255,0.2);
+  }
+  .video-info { padding: 16px; }
+  .video-info .phase-num { margin-bottom: 6px; }
+  .video-info h3 { font-size: 13px; color: var(--white); margin: 0 0 6px; }
+  .video-info p { font-size: 12px; margin: 0; color: var(--gray); }
+  .video-card a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* ── TRANSMISSION CHAIN ── */
+  .chain { padding: 64px 0; border-top: 1px solid var(--border); }
+  .chain-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 32px 0;
+  }
+  .chain-step {
+    background: var(--lgray);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--white);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .chain-arrow {
+    font-family: var(--mono);
+    color: var(--cyan);
+    font-size: 14px;
+  }
+
+  /* ── FILES ── */
+  .files { padding: 64px 0; border-top: 1px solid var(--border); }
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 32px 0;
+  }
+  .file-card {
+    background: var(--lgray);
+    border: 1px solid var(--border);
+    padding: 18px;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+  }
+  .file-card:hover { border-color: rgba(0,194,224,0.4); }
+  .file-ext {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+  .file-card h3 { font-size: 12px; color: var(--white); margin: 0 0 6px; }
+  .file-card p { font-size: 11px; color: var(--gray); margin: 0; line-height: 1.5; }
+
+  /* ── CLOSING ── */
+  .closing {
+    padding: 80px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .closing h2 { margin-bottom: 20px; }
+  .closing p { max-width: 560px; margin: 0 auto 12px; }
+  .analogy {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--cyan);
+    font-style: italic;
+    max-width: 620px;
+    margin: 40px auto;
+    line-height: 1.8;
+    padding: 24px;
+    border: 1px solid var(--border);
+    background: var(--lgray);
+    border-radius: 4px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+    text-align: center;
+  }
+  footer p {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--gray);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    nav { display: none; }
+    .hero { padding: 60px 0 48px; }
+    .hero-meta { gap: 20px; }
+    .chain-steps { flex-direction: column; align-items: flex-start; }
+    .chain-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">AIVisionCalibration</div>
+    <nav>
+      <a href="#phases">Phases</a>
+      <a href="#findings">Findings</a>
+      <a href="#videos">Videos</a>
+      <a href="#files">Files</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-tag">Open Research · May 2026</div>
+      <h1>AI Visual<br><span>Calibration</span><br>Protocol V1.0</h1>
+      <p class="hero-sub">A three-phase experiment in AI visual perception — built from first principles, executed with consumer hardware, documented openly.</p>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><strong>3</strong>Phases</div>
+        <div class="hero-meta-item"><strong>6</strong>Video recordings</div>
+        <div class="hero-meta-item"><strong>4</strong>HTML source files</div>
+        <div class="hero-meta-item"><strong>May 20–21, 2026</strong>Conducted</div>
+        <div class="hero-meta-item"><strong>Claude Sonnet</strong>AI System</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABSTRACT -->
+  <section class="abstract">
+    <div class="wrap">
+      <div class="section-label">Abstract</div>
+      <h2>What this experiment is</h2>
+      <p>The central question: what does an AI actually perceive when shown visual information, and how does that perception differ from the human experience of the same content?</p>
+      <p>This protocol characterizes AI visual perception across a documented transmission chain — from source content generated by the AI itself, through display hardware, camera optics, video codec, and back to AI analysis. Each step in the chain is measurable. The gaps between source and perceived content are not failures. They are the data.</p>
+      <blockquote>
+        "This is like the first time someone put a thermometer in meat that was cooking.<br>
+        We have known how to cook meat and measure temperature.<br>
+        Today we combined the two."
+      </blockquote>
+      <p>Every component of this experiment existed independently — cameras, AI, video, color theory, calibration methodology. The contribution is their combination in this specific configuration, with this specific intent, documented openly.</p>
+    </div>
+  </section>
+
+  <!-- PHASES -->
+  <section class="phases" id="phases">
+    <div class="wrap">
+      <div class="section-label">Experiment Structure</div>
+      <h2>Three phases, built in order</h2>
+      <p>Each phase depends on the previous one being solid. Shape before color. Color before motion. The same order human visual cognition develops.</p>
+
+      <div class="phase-grid">
+        <div class="phase-card">
+          <div class="phase-num">PHASE 01</div>
+          <h3>Shape Recognition</h3>
+          <p>Black and white. Solid and outline. Circle, square, triangle, star. Clockwise and counter-clockwise rotation. Maximum simplicity to establish baseline.</p>
+          <div class="phase-stat">
+            <span>640 kbps</span> screen · <span>31.4 stripes</span> moiré
+          </div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-num">PHASE 02</div>
+          <h3>Color Perception</h3>
+          <p>RGB primaries. CMY secondaries. Additive light mixing. Subtractive pigment mixing. Stroop color-word conflict test. Saturation gradients.</p>
+          <div class="phase-stat">
+            <span>925 kbps</span> screen · <span>37.7 stripes</span> moiré
+          </div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-num">PHASE 03</div>
+          <h3>Spatial Motion</h3>
+          <p>3D perspective-projected room. Sphere traverses 6 known waypoints. Floor indicator encodes height. Live XYZ coordinates in every frame.</p>
+          <div class="phase-stat">
+            <span>1,060 kbps</span> screen · <span>37.1 stripes</span> moiré
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <p>The AI generated all source content — meaning it held the ground truth independently of the human observer. Discrepancies between source and perceived content are attributable to the transmission chain, not uncertainty about the original. This eliminates a fundamental variable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRANSMISSION CHAIN -->
+  <section class="chain">
+    <div class="wrap">
+      <div class="section-label">Methodology</div>
+      <h2>The transmission chain</h2>
+      <p>Each phase produced two capture streams. The physical chain was a deliberate design choice — not a compromise. It characterizes what real-world hardware does to a known signal.</p>
+
+      <h3>Digital capture (screen recording)</h3>
+      <div class="chain-steps">
+        <div class="chain-step">HTML5 Render</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">HEVC Encode</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">AI Analysis</div>
+      </div>
+
+      <h3>Physical capture (camera recording)</h3>
+      <div class="chain-steps">
+        <div class="chain-step">HTML5 Render</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">Vizio D32h-J09</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">iPhone 12 Pro Max</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">6ft · 3.2–3.6x zoom</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">HEVC Encode</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-step">AI Analysis</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINDINGS -->
+  <section class="findings" id="findings">
+    <div class="wrap">
+      <div class="section-label">Results</div>
+      <h2>What was verified</h2>
+      <ul class="finding-list">
+        <li><strong>Shape recognition:</strong> All shapes correctly identified through both capture chains under all conditions. Labels confirmed visual reads — confirming labels are redundancy, not crutch.</li>
+        <li><strong>Rotation direction:</strong> Clockwise vs counter-clockwise correctly detected mid-rotation at 126° and 27° on the star.</li>
+        <li><strong>Color identification:</strong> All primaries and secondaries correctly named. Color contamination through physical chain measurable but does not prevent identification.</li>
+        <li><strong>Additive color mixing:</strong> RGB center correctly perceived as white. Pairwise intersections yellow, magenta, cyan — as physics requires.</li>
+        <li><strong>Subtractive color mixing:</strong> CMY center correctly perceived as black. Pairwise intersections red, green, blue — as pigment requires.</li>
+        <li><strong>Stroop test:</strong> All 6 color-word conflicts resolved correctly. The Stroop test was independently derived from experimental logic — the correct tool arrived at without prior knowledge of its established use in cognitive psychology.</li>
+        <li><strong>Depth from size:</strong> 5.8× diameter range across room correctly perceived and measured. Sphere: 15px (rear) → 42px (center) → 87.5px (front).</li>
+        <li><strong>Height from floor indicator:</strong> 111px separation at Top Front Left correctly read as near-ceiling. 3px at center correctly read as mid-height.</li>
+        <li><strong>Lateral position:</strong> Left/right tracking correct at all 6 waypoints.</li>
+        <li><strong>Compression cost curve:</strong> B&W (640 kbps) → Color (925 kbps) → Motion (1,060 kbps). Information density confirmed independently by codec.</li>
+      </ul>
+
+      <h2 style="margin-top:48px">Physical chain distortion profile</h2>
+      <p>For the Vizio D32h-J09 + iPhone 12 Pro Max at ~6ft, 3.2–3.6× zoom:</p>
+      <table>
+        <thead><tr><th>Artifact</th><th>Measurement</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>White brightness reduction</td><td>~17% (254→211–217/255)</td><td>Stable with slight session drift</td></tr>
+          <tr><td>Moiré interference</td><td>31–38 stripes/frame</td><td>Zoom-dependent, predictable</td></tr>
+          <tr><td>Color contamination</td><td>Cross-channel bleed ~19–26 pts</td><td>Hidden in B&W; visible in color</td></tr>
+          <tr><td>Color cast</td><td>Purple-green tint on white</td><td>Consistent across sessions</td></tr>
+          <tr><td>Chromatic aberration</td><td>RGB fringing on fine grid lines</td><td>First optical artifact (Phase 3)</td></tr>
+          <tr><td>Brightness drift</td><td>~3 pts/session</td><td>TV warm-up; slow and predictable</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- VIDEOS -->
+  <section class="videos" id="videos">
+    <div class="wrap">
+      <div class="section-label">YouTube Documentation</div>
+      <h2>Public record</h2>
+      <p>All three phases published to YouTube as timestamped public record, independent of this repository.</p>
+      <div class="video-grid">
+        <div class="video-card">
+          <a href="https://www.youtube.com/shorts/9TiTXbUzn8w" target="_blank" rel="noopener">
+          <div class="video-thumb">PHASE 1 ▶</div>
+          <div class="video-info">
+            <div class="phase-num">PHASE 01 · B&W SHAPES</div>
+            <h3>Teaching AI To See — Phase 1 Calibration</h3>
+            <p>Shape recognition, solid/outline pairs, star rotation sequence</p>
+          </div>
+          </a>
+        </div>
+        <div class="video-card">
+          <a href="https://www.youtube.com/shorts/ZUcKnpUvMo8" target="_blank" rel="noopener">
+          <div class="video-thumb">PHASE 2 ▶</div>
+          <div class="video-info">
+            <div class="phase-num">PHASE 02 · COLOR</div>
+            <h3>Teaching AI To See — Phase 2: Color</h3>
+            <p>Primaries, secondaries, additive/subtractive mixing, Stroop test, gradients</p>
+          </div>
+          </a>
+        </div>
+        <div class="video-card">
+          <a href="https://www.youtube.com/shorts/sQ_0V3aR5As" target="_blank" rel="noopener">
+          <div class="video-thumb">PHASE 3 ▶</div>
+          <div class="video-info">
+            <div class="phase-num">PHASE 03 · MOTION</div>
+            <h3>Teaching AI To See — Phase 3: Motion & Depth</h3>
+            <p>3D environment, sphere waypoints, floor indicator, live XYZ data</p>
+          </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILES -->
+  <section class="files" id="files">
+    <div class="wrap">
+      <div class="section-label">Repository Contents</div>
+      <h2>Source files</h2>
+      <div class="file-grid">
+        <div class="file-card">
+          <div class="file-ext">HTML</div>
+          <h3>phase1_calibration.html</h3>
+          <p>B&W shapes, solid/outline pairs, star rotation with live degree counter</p>
+        </div>
+        <div class="file-card">
+          <div class="file-ext">HTML</div>
+          <h3>phase2_calibration.html</h3>
+          <p>Original Phase 2 — documents pre-correction error state (opacity stacking)</p>
+        </div>
+        <div class="file-card">
+          <div class="file-ext">HTML</div>
+          <h3>phase2_calibration_corrected.html</h3>
+          <p>Corrected: additive screen blend + subtractive multiply blend</p>
+        </div>
+        <div class="file-card">
+          <div class="file-ext">HTML</div>
+          <h3>phase3_calibration.html</h3>
+          <p>3D room with sphere, floor indicator, live XYZ HUD, 6 waypoints</p>
+        </div>
+        <div class="file-card">
+          <div class="file-ext">DOCX</div>
+          <h3>AI_Visual_Calibration_Protocol_V1.docx</h3>
+          <p>Full protocol document — methodology, findings, proposed future phases</p>
+        </div>
+        <div class="file-card">
+          <div class="file-ext">HTML</div>
+          <h3>index.html</h3>
+          <p>This page — GitHub Pages landing document</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING -->
+  <section class="closing">
+    <div class="wrap">
+      <div class="section-label">Conclusion</div>
+      <h2>What this adds up to</h2>
+      <p>This experiment was conducted in a single extended conversation. The human collaborator had no background in computer vision, signal processing, or cognitive science. The protocol was designed from first principles through conversation, executed with consumer hardware available to most households, and produced quantifiable, reproducible findings.</p>
+      <p>The most durable artifact is the protocol itself — the structured, phase-based approach that begins from absolute zero. That protocol did not exist before this conversation.</p>
+
+      <div class="analogy">
+        "The goal wasn't to give AI vision. It was to show AI that it interprets data just like humans do.<br>
+        We just had to find a common language.<br>
+        It seems we are mostly there."
+      </div>
+
+      <p style="color:var(--gray); font-size:13px;">Conducted May 20–21, 2026 · Submitted to Anthropic · Justin Coffin</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>AIVisionCalibration · Phase 1–3 Complete · Phases 4–7 Proposed · Open Research · 2026</p>
+  </div>
+</footer>
+
+</body>
+</html>
