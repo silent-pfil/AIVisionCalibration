@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 2 Calibration — Color Corrected</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #outer {
+    width: min(100vw, 56.25vh);
+    height: min(177.78vw, 100vh);
+    background: white;
+    border: 6px solid black;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .hud {
+    position: absolute;
+    font-size: clamp(9px, 1.4vmin, 13px);
+    font-family: 'Courier New', monospace;
+    color: #000;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  #hud-tl { top: 10px; left: 12px; line-height: 1.6; }
+  #hud-tr { top: 10px; right: 12px; text-align: right; line-height: 1.6; }
+  #hud-bl { bottom: 10px; left: 12px; }
+  #hud-br { bottom: 10px; right: 12px; text-align: right; }
+  #cal {
+    width: 72%;
+    aspect-ratio: 1 / 1;
+    border: 3px solid black;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: white;
+  }
+  #cal::before, #cal::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: black;
+    border-style: solid;
+    z-index: 20;
+  }
+  #cal::before { top: -3px; left: -3px; border-width: 3px 0 0 3px; }
+  #cal::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+
+  /* The additive blend container — black background required for screen blend mode */
+  #blend-stage {
+    position: absolute;
+    inset: 0;
+    background: black;
+    display: none;
+  }
+  #blend-stage svg {
+    width: 100%; height: 100%;
+    display: block;
+  }
+  /* screen blend makes colors add like light */
+  #blend-stage svg circle,
+  #blend-stage svg ellipse {
+    mix-blend-mode: screen;
+  }
+
+  /* Standard SVG stage for non-blend scenes */
+  #cal-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  #progress-track {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: rgba(0,0,0,0.1);
+    z-index: 15;
+  }
+  #progress-bar { height: 100%; background: black; width: 0%; }
+  #cal-dim {
+    position: absolute;
+    top: -22px; left: 0;
+    font-size: clamp(8px, 1.1vmin, 11px);
+    color: #555;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  #scene-label {
+    margin-top: clamp(8px, 1.5vmin, 16px);
+    font-size: clamp(10px, 1.6vmin, 15px);
+    font-weight: bold;
+    letter-spacing: 0.12em;
+    color: black;
+    text-align: center;
+    min-height: 1.5em;
+  }
+  #black-overlay {
+    position: absolute; inset: 0;
+    background: black;
+    display: none; z-index: 5;
+  }
+  #title-card {
+    position: absolute; inset: 0;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 1vmin, 10px);
+    z-index: 4;
+  }
+  .t-main { font-size: clamp(13px, 2.4vmin, 20px); font-weight: bold; letter-spacing: 0.2em; }
+  .t-sub  { font-size: clamp(8px, 1.3vmin, 12px); letter-spacing: 0.12em; color: #444; }
+  .t-rule { width: 40%; height: 1px; background: black; margin: 3px 0; }
+  .t-note { font-size: clamp(7px, 1.1vmin, 10px); letter-spacing: 0.08em; color: #00AA00; }
+</style>
+</head>
+<body>
+<div id="outer">
+  <div class="hud" id="hud-tl">
+    <div id="hud-frame">F: 0000</div>
+    <div id="hud-time">T: 0.000s</div>
+  </div>
+  <div class="hud" id="hud-tr">
+    <div>PHASE 2</div>
+    <div>COLOR+</div>
+  </div>
+  <div class="hud" id="hud-bl">—</div>
+  <div class="hud" id="hud-br">2026-05-20</div>
+
+  <div id="cal">
+    <div id="cal-dim">CAL AREA — KNOWN SQUARE</div>
+
+    <!-- Additive blend stage (scenes 2 & 4) -->
+    <div id="blend-stage">
+      <svg id="blend-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <!-- Standard stage (all other scenes) -->
+    <svg id="cal-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+
+    <div id="progress-track"><div id="progress-bar"></div></div>
+  </div>
+  <div id="scene-label"></div>
+
+  <div id="black-overlay"></div>
+  <div id="title-card">
+    <div class="t-main">PHASE 2 CALIBRATION</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">COLOR PERCEPTION + INTERACTION</div>
+    <div class="t-sub">PRIMARIES · SECONDARIES · STROOP · GRADIENT</div>
+    <div class="t-rule"></div>
+    <div class="t-note">ADDITIVE LIGHT + SUBTRACTIVE PIGMENT</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">2026-05-20</div>
+  </div>
+</div>
+
+<script>
+// ── Scene builders ────────────────────────────────────────────────────────
+
+// SCENE 1 — RGB primaries isolated, white background
+function scene1() {
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+      <circle cx="110" cy="200" r="88" fill="#FF0000"/>
+      <circle cx="200" cy="200" r="88" fill="#00DD00"/>
+      <circle cx="290" cy="200" r="88" fill="#0000FF"/>
+      <text x="110" y="318" font-family="Courier New" font-size="20" font-weight="bold" fill="#CC0000" text-anchor="middle">RED</text>
+      <text x="200" y="318" font-family="Courier New" font-size="20" font-weight="bold" fill="#007700" text-anchor="middle">GREEN</text>
+      <text x="290" y="318" font-family="Courier New" font-size="20" font-weight="bold" fill="#0000CC" text-anchor="middle">BLUE</text>`
+  };
+}
+
+// SCENE 2 — RGB overlapped, ADDITIVE blend (screen mode, black bg)
+function scene2() {
+  return {
+    blend: true,
+    svg: `
+      <circle cx="168" cy="152" r="118" fill="#FF0000"/>
+      <circle cx="232" cy="152" r="118" fill="#00FF00"/>
+      <circle cx="200" cy="218" r="118" fill="#0000FF"/>
+      <text x="200" y="385" font-family="Courier New" font-size="16" fill="#888888" text-anchor="middle">CENTER = WHITE  ·  ADDITIVE LIGHT</text>`
+  };
+}
+
+// SCENE 3 — Secondaries isolated, white background
+function scene3() {
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+      <circle cx="110" cy="200" r="88" fill="#FFEE00"/>
+      <circle cx="200" cy="200" r="88" fill="#00DDDD"/>
+      <circle cx="290" cy="200" r="88" fill="#DD00DD"/>
+      <text x="110" y="318" font-family="Courier New" font-size="16" font-weight="bold" fill="#888800" text-anchor="middle">YELLOW</text>
+      <text x="200" y="318" font-family="Courier New" font-size="16" font-weight="bold" fill="#008888" text-anchor="middle">CYAN</text>
+      <text x="290" y="318" font-family="Courier New" font-size="16" font-weight="bold" fill="#880088" text-anchor="middle">MAGENTA</text>`
+  };
+}
+
+// SCENE 4 — Secondaries overlapped, SUBTRACTIVE blend (multiply = pigment/ink model)
+function scene4() {
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+      <circle cx="168" cy="152" r="118" fill="#FFFF00" style="mix-blend-mode:multiply"/>
+      <circle cx="232" cy="152" r="118" fill="#00FFFF" style="mix-blend-mode:multiply"/>
+      <circle cx="200" cy="218" r="118" fill="#FF00FF" style="mix-blend-mode:multiply"/>
+      <text x="200" y="385" font-family="Courier New" font-size="15" fill="#555" text-anchor="middle">CENTER = BLACK  ·  SUBTRACTIVE / PIGMENT</text>`
+  };
+}
+
+// SCENE 5 — Stroop: shape color ≠ word on shape
+function scene5() {
+  const triPath = (cx, cy, r) => {
+    const h = r * 0.866;
+    return `${cx},${cy-r} ${cx-h*1.15},${cy+r*0.6} ${cx+h*1.15},${cy+r*0.6}`;
+  };
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+      <polygon points="${triPath(80, 175, 72)}"  fill="#FF0000"/>
+      <text x="80"  y="184" font-family="Courier New" font-size="19" font-weight="bold" fill="#0000FF" text-anchor="middle">BLUE</text>
+      <text x="80"  y="290" font-family="Courier New" font-size="13" fill="#FF0000" text-anchor="middle">SHAPE: RED</text>
+      <text x="80"  y="308" font-family="Courier New" font-size="13" fill="#0000FF" text-anchor="middle">WORD: BLUE</text>
+
+      <polygon points="${triPath(200, 175, 72)}" fill="#0000FF"/>
+      <text x="200" y="184" font-family="Courier New" font-size="19" font-weight="bold" fill="#00AA00" text-anchor="middle">GREEN</text>
+      <text x="200" y="290" font-family="Courier New" font-size="13" fill="#0000FF" text-anchor="middle">SHAPE: BLUE</text>
+      <text x="200" y="308" font-family="Courier New" font-size="13" fill="#00AA00" text-anchor="middle">WORD: GREEN</text>
+
+      <polygon points="${triPath(320, 175, 72)}" fill="#00AA00"/>
+      <text x="320" y="184" font-family="Courier New" font-size="19" font-weight="bold" fill="#FF0000" text-anchor="middle">RED</text>
+      <text x="320" y="290" font-family="Courier New" font-size="13" fill="#00AA00" text-anchor="middle">SHAPE: GREEN</text>
+      <text x="320" y="308" font-family="Courier New" font-size="13" fill="#FF0000" text-anchor="middle">WORD: RED</text>
+
+      <text x="200" y="368" font-family="Courier New" font-size="12" fill="#555" text-anchor="middle" font-style="italic">STROOP · SHAPE vs WORD</text>`
+  };
+}
+
+// SCENE 6 — Stroop inverted: block color ≠ word inside
+function scene6() {
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+
+      <rect x="18"  y="55" width="110" height="110" rx="8" fill="#FF0000"/>
+      <text x="73"  y="120" font-family="Courier New" font-size="19" font-weight="bold" fill="#00AA00" text-anchor="middle">BLUE</text>
+      <text x="73"  y="195" font-family="Courier New" font-size="12" fill="#CC0000" text-anchor="middle">BLOCK: RED</text>
+      <text x="73"  y="213" font-family="Courier New" font-size="12" fill="#00AA00" text-anchor="middle">WORD: GREEN</text>
+
+      <rect x="145" y="55" width="110" height="110" rx="8" fill="#00AA00"/>
+      <text x="200" y="120" font-family="Courier New" font-size="19" font-weight="bold" fill="#0000EE" text-anchor="middle">RED</text>
+      <text x="200" y="195" font-family="Courier New" font-size="12" fill="#007700" text-anchor="middle">BLOCK: GREEN</text>
+      <text x="200" y="213" font-family="Courier New" font-size="12" fill="#0000EE" text-anchor="middle">WORD: BLUE</text>
+
+      <rect x="272" y="55" width="110" height="110" rx="8" fill="#0000EE"/>
+      <text x="327" y="120" font-family="Courier New" font-size="19" font-weight="bold" fill="#FF0000" text-anchor="middle">GREEN</text>
+      <text x="327" y="195" font-family="Courier New" font-size="12" fill="#0000CC" text-anchor="middle">BLOCK: BLUE</text>
+      <text x="327" y="213" font-family="Courier New" font-size="12" fill="#FF0000" text-anchor="middle">WORD: RED</text>
+
+      <line x1="20" y1="240" x2="380" y2="240" stroke="#ddd" stroke-width="1"/>
+      <text x="200" y="268" font-family="Courier New" font-size="13" fill="#333" text-anchor="middle" font-weight="bold">WHAT DO YOU READ FIRST?</text>
+      <text x="200" y="290" font-family="Courier New" font-size="12" fill="#555" text-anchor="middle">THE BLOCK COLOR  OR  THE WORD?</text>
+      <text x="200" y="368" font-family="Courier New" font-size="12" fill="#555" text-anchor="middle" font-style="italic">STROOP · BLOCK vs WORD</text>`
+  };
+}
+
+// SCENE 7 — Gradients: each primary fading to white
+function scene7() {
+  return {
+    blend: false,
+    svg: `
+      <rect width="400" height="400" fill="white"/>
+      <defs>
+        <linearGradient id="gR" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#FF0000"/>
+          <stop offset="100%" stop-color="#FFFFFF"/>
+        </linearGradient>
+        <linearGradient id="gG" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#00DD00"/>
+          <stop offset="100%" stop-color="#FFFFFF"/>
+        </linearGradient>
+        <linearGradient id="gB" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#0000FF"/>
+          <stop offset="100%" stop-color="#FFFFFF"/>
+        </linearGradient>
+      </defs>
+      <rect x="20" y="38"  width="360" height="82" rx="5" fill="url(#gR)"/>
+      <text x="32" y="88"  font-family="Courier New" font-size="20" font-weight="bold" fill="white">RED</text>
+      <text x="368" y="88" font-family="Courier New" font-size="14" fill="#CC0000" text-anchor="end">→ WHITE</text>
+
+      <rect x="20" y="153" width="360" height="82" rx="5" fill="url(#gG)"/>
+      <text x="32" y="203" font-family="Courier New" font-size="20" font-weight="bold" fill="white">GREEN</text>
+      <text x="368" y="203" font-family="Courier New" font-size="14" fill="#007700" text-anchor="end">→ WHITE</text>
+
+      <rect x="20" y="268" width="360" height="82" rx="5" fill="url(#gB)"/>
+      <text x="32" y="318" font-family="Courier New" font-size="20" font-weight="bold" fill="white">BLUE</text>
+      <text x="368" y="318" font-family="Courier New" font-size="14" fill="#0000CC" text-anchor="end">→ WHITE</text>
+
+      <text x="200" y="382" font-family="Courier New" font-size="12" fill="#555" text-anchor="middle">FULL SATURATION → WHITE  ·  WHERE IS COLOR LOST?</text>`
+  };
+}
+
+// ── Sequence ──────────────────────────────────────────────────────────────
+const BD = 500;
+const SD = 5000;
+const TD = 3500;
+
+const scenes = [
+  { fn: scene1, label: 'RGB PRIMARIES  ·  ISOLATED',       tag: 'P1' },
+  { fn: scene2, label: 'RGB PRIMARIES  ·  OVERLAPPED  ·  ADDITIVE', tag: 'P2' },
+  { fn: scene3, label: 'SECONDARIES  ·  ISOLATED',         tag: 'S1' },
+  { fn: scene4, label: 'SECONDARIES  ·  OVERLAPPED  ·  SUBTRACTIVE', tag: 'S2' },
+  { fn: scene5, label: 'STROOP  ·  SHAPE vs WORD',         tag: 'ST1' },
+  { fn: scene6, label: 'STROOP  ·  BLOCK vs WORD',         tag: 'ST2' },
+  { fn: scene7, label: 'GRADIENT  ·  SATURATION → WHITE',  tag: 'GR' },
+];
+
+const seq = [];
+seq.push({ kind: 'title', dur: TD, end: false });
+for (const s of scenes) {
+  seq.push({ kind: 'black', dur: BD });
+  seq.push({ kind: 'scene', dur: SD, ...s });
+}
+seq.push({ kind: 'black', dur: BD });
+seq.push({ kind: 'title', dur: TD, end: true });
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const hudFrame   = document.getElementById('hud-frame');
+const hudTime    = document.getElementById('hud-time');
+const hudBL      = document.getElementById('hud-bl');
+const calSvg     = document.getElementById('cal-svg');
+const blendStage = document.getElementById('blend-stage');
+const blendSvg   = document.getElementById('blend-svg');
+const sceneLabel = document.getElementById('scene-label');
+const progBar    = document.getElementById('progress-bar');
+const blackOv    = document.getElementById('black-overlay');
+const titleCard  = document.getElementById('title-card');
+const titleMain  = document.querySelector('.t-main');
+const titleSubs  = document.querySelectorAll('.t-sub');
+
+let frameCount = 0, startTs = null, seqIdx = 0, stepStart = null;
+
+function render(ts) {
+  if (!startTs)   startTs   = ts;
+  if (!stepStart) stepStart = ts;
+  if (seqIdx >= seq.length) return;
+
+  const elapsed  = ts - startTs;
+  const stepEl   = ts - stepStart;
+
+  frameCount++;
+  hudFrame.textContent = `F: ${String(frameCount).padStart(4,'0')}`;
+  hudTime.textContent  = `T: ${(elapsed/1000).toFixed(3)}s`;
+
+  if (stepEl >= seq[seqIdx].dur) {
+    seqIdx++;
+    stepStart = ts;
+    requestAnimationFrame(render);
+    return;
+  }
+
+  const step     = seq[seqIdx];
+  const progress = Math.min(stepEl / step.dur, 1);
+
+  switch (step.kind) {
+    case 'title':
+      blackOv.style.display   = 'none';
+      titleCard.style.display = 'flex';
+      blendStage.style.display = 'none';
+      if (step.end) {
+        titleMain.textContent    = 'CALIBRATION COMPLETE';
+        titleSubs[0].textContent = 'PHASE 2 — 7 COLOR SCENES';
+        titleSubs[1].textContent = 'ADDITIVE BLEND CORRECTED';
+      }
+      sceneLabel.textContent = '';
+      progBar.style.width    = '0%';
+      hudBL.textContent      = step.end ? 'SEQ: END' : 'SEQ: INIT';
+      break;
+
+    case 'black':
+      titleCard.style.display  = 'none';
+      blackOv.style.display    = 'block';
+      blendStage.style.display = 'none';
+      sceneLabel.textContent   = '';
+      progBar.style.width      = '0%';
+      hudBL.textContent        = 'SEQ: ///';
+      break;
+
+    case 'scene': {
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'none';
+      const built = step.fn();
+      if (built.blend) {
+        blendStage.style.display = 'block';
+        blendSvg.innerHTML       = built.svg;
+        calSvg.innerHTML         = '';
+      } else {
+        blendStage.style.display = 'none';
+        calSvg.innerHTML         = built.svg;
+      }
+      sceneLabel.textContent = step.label;
+      progBar.style.width    = (progress * 100) + '%';
+      hudBL.textContent      = `SEQ: ${step.tag}`;
+      break;
+    }
+  }
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 2 Calibration — Color</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #outer {
+    width: min(100vw, 56.25vh);
+    height: min(177.78vw, 100vh);
+    background: white;
+    border: 6px solid black;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .hud {
+    position: absolute;
+    font-size: clamp(9px, 1.4vmin, 13px);
+    font-family: 'Courier New', monospace;
+    color: #000;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  #hud-tl { top: 10px; left: 12px; line-height: 1.6; }
+  #hud-tr { top: 10px; right: 12px; text-align: right; line-height: 1.6; }
+  #hud-bl { bottom: 10px; left: 12px; }
+  #hud-br { bottom: 10px; right: 12px; text-align: right; }
+  #cal {
+    width: 72%;
+    aspect-ratio: 1 / 1;
+    border: 3px solid black;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  #cal::before, #cal::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: black;
+    border-style: solid;
+    z-index: 2;
+  }
+  #cal::before { top: -3px; left: -3px; border-width: 3px 0 0 3px; }
+  #cal::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+  #cal-svg { width: 100%; height: 100%; display: block; }
+  #progress-track {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: rgba(0,0,0,0.1);
+    z-index: 3;
+  }
+  #progress-bar { height: 100%; background: black; width: 0%; }
+  #cal-dim {
+    position: absolute;
+    top: -22px; left: 0;
+    font-size: clamp(8px, 1.1vmin, 11px);
+    color: #555;
+    letter-spacing: 0.05em;
+  }
+  #scene-label {
+    margin-top: clamp(8px, 1.5vmin, 16px);
+    font-size: clamp(10px, 1.6vmin, 15px);
+    font-weight: bold;
+    letter-spacing: 0.12em;
+    color: black;
+    text-align: center;
+    min-height: 1.5em;
+  }
+  #black-overlay {
+    position: absolute; inset: 0;
+    background: black;
+    display: none; z-index: 5;
+  }
+  #title-card {
+    position: absolute; inset: 0;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 1vmin, 10px);
+    z-index: 4;
+  }
+  .t-main { font-size: clamp(13px, 2.4vmin, 20px); font-weight: bold; letter-spacing: 0.2em; }
+  .t-sub  { font-size: clamp(8px, 1.3vmin, 12px); letter-spacing: 0.12em; color: #444; }
+  .t-rule { width: 40%; height: 1px; background: black; margin: 3px 0; }
+</style>
+</head>
+<body>
+<div id="outer">
+  <div class="hud" id="hud-tl">
+    <div id="hud-frame">F: 0000</div>
+    <div id="hud-time">T: 0.000s</div>
+  </div>
+  <div class="hud" id="hud-tr">
+    <div>PHASE 2</div>
+    <div>COLOR</div>
+  </div>
+  <div class="hud" id="hud-bl">—</div>
+  <div class="hud" id="hud-br">2026-05-20</div>
+
+  <div id="cal">
+    <div id="cal-dim">CAL AREA — KNOWN SQUARE</div>
+    <svg id="cal-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="progress-track"><div id="progress-bar"></div></div>
+  </div>
+  <div id="scene-label"></div>
+
+  <div id="black-overlay"></div>
+  <div id="title-card">
+    <div class="t-main">PHASE 2 CALIBRATION</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">COLOR PERCEPTION + INTERACTION</div>
+    <div class="t-sub">PRIMARIES · SECONDARIES · STROOP · GRADIENT</div>
+    <div class="t-rule"></div>
+    <div class="t-sub" id="tc-date">2026-05-20</div>
+  </div>
+</div>
+
+<script>
+// ── SVG scene builders ────────────────────────────────────────────────────
+
+function scene1() {
+  // Three separate circles: red, green, blue
+  return `
+    <circle cx="120" cy="200" r="90" fill="#FF0000"/>
+    <circle cx="200" cy="200" r="90" fill="#00CC00"/>
+    <circle cx="280" cy="200" r="90" fill="#0000FF"/>
+    <text x="90"  y="320" font-family="Courier New" font-size="22" font-weight="bold" fill="#FF0000" text-anchor="middle">RED</text>
+    <text x="200" y="320" font-family="Courier New" font-size="22" font-weight="bold" fill="#00CC00" text-anchor="middle">GREEN</text>
+    <text x="310" y="320" font-family="Courier New" font-size="22" font-weight="bold" fill="#0000FF" text-anchor="middle">BLUE</text>`;
+}
+
+function scene2() {
+  // RGB circles overlapped — additive mixing
+  return `
+    <circle cx="170" cy="155" r="110" fill="#FF0000" opacity="0.85"/>
+    <circle cx="230" cy="155" r="110" fill="#00CC00" opacity="0.85"/>
+    <circle cx="200" cy="215" r="110" fill="#0000FF" opacity="0.85"/>`;
+}
+
+function scene3() {
+  // Three separate circles: yellow, cyan, magenta
+  return `
+    <circle cx="120" cy="200" r="90" fill="#FFEE00"/>
+    <circle cx="200" cy="200" r="90" fill="#00DDDD"/>
+    <circle cx="280" cy="200" r="90" fill="#DD00DD"/>
+    <text x="90"  y="320" font-family="Courier New" font-size="18" font-weight="bold" fill="#CCAA00" text-anchor="middle">YELLOW</text>
+    <text x="200" y="320" font-family="Courier New" font-size="18" font-weight="bold" fill="#009999" text-anchor="middle">CYAN</text>
+    <text x="310" y="320" font-family="Courier New" font-size="18" font-weight="bold" fill="#AA00AA" text-anchor="middle">MAGENTA</text>`;
+}
+
+function scene4() {
+  // Secondaries overlapped
+  return `
+    <circle cx="170" cy="155" r="110" fill="#FFEE00" opacity="0.85"/>
+    <circle cx="230" cy="155" r="110" fill="#00DDDD" opacity="0.85"/>
+    <circle cx="200" cy="215" r="110" fill="#DD00DD" opacity="0.85"/>`;
+}
+
+function scene5() {
+  // Stroop test: shape color ≠ word on shape
+  // Red triangle with word "BLUE", blue triangle with word "GREEN", green triangle with word "RED"
+  const tri = (cx, cy, r) => {
+    const h = r * Math.sqrt(3);
+    return `${cx},${cy - r*1.1} ${cx - h*0.65},${cy + r*0.55} ${cx + h*0.65},${cy + r*0.55}`;
+  };
+  return `
+    <polygon points="${tri(90, 185, 68)}"  fill="#FF0000"/>
+    <text x="90"  y="195" font-family="Courier New" font-size="20" font-weight="bold" fill="#0000FF" text-anchor="middle">BLUE</text>
+    <text x="90"  y="295" font-family="Courier New" font-size="15" fill="#FF0000" text-anchor="middle">RED SHAPE</text>
+
+    <polygon points="${tri(200, 185, 68)}" fill="#0000FF"/>
+    <text x="200" y="195" font-family="Courier New" font-size="20" font-weight="bold" fill="#00AA00" text-anchor="middle">GREEN</text>
+    <text x="200" y="295" font-family="Courier New" font-size="15" fill="#0000FF" text-anchor="middle">BLUE SHAPE</text>
+
+    <polygon points="${tri(310, 185, 68)}" fill="#00AA00"/>
+    <text x="310" y="195" font-family="Courier New" font-size="20" font-weight="bold" fill="#FF0000" text-anchor="middle">RED</text>
+    <text x="310" y="295" font-family="Courier New" font-size="15" fill="#00AA00" text-anchor="middle">GREEN SHAPE</text>`;
+}
+
+function scene6() {
+  // Stroop inverted: colored blocks with disagreeing color words
+  // Red block, green text "BLUE"
+  // Green block, blue text "RED"
+  // Blue block, red text "GREEN"
+  return `
+    <rect x="20"  y="60"  width="105" height="105" rx="6" fill="#FF0000"/>
+    <text x="72"  y="123" font-family="Courier New" font-size="22" font-weight="bold" fill="#00AA00" text-anchor="middle">BLUE</text>
+    <text x="72"  y="195" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">BLOCK: RED</text>
+    <text x="72"  y="215" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">WORD: GREEN</text>
+
+    <rect x="148" y="60"  width="105" height="105" rx="6" fill="#00AA00"/>
+    <text x="200" y="123" font-family="Courier New" font-size="22" font-weight="bold" fill="#0000FF" text-anchor="middle">RED</text>
+    <text x="200" y="195" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">BLOCK: GREEN</text>
+    <text x="200" y="215" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">WORD: BLUE</text>
+
+    <rect x="275" y="60"  width="105" height="105" rx="6" fill="#0000FF"/>
+    <text x="328" y="123" font-family="Courier New" font-size="22" font-weight="bold" fill="#FF0000" text-anchor="middle">GREEN</text>
+    <text x="328" y="195" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">BLOCK: BLUE</text>
+    <text x="328" y="215" font-family="Courier New" font-size="13" fill="#888" text-anchor="middle">WORD: RED</text>
+
+    <text x="200" y="360" font-family="Courier New" font-size="14" fill="#333" text-anchor="middle" font-style="italic">SHAPE COLOR ≠ WORD COLOR</text>`;
+}
+
+function scene7() {
+  // Gradients: red, green, blue each fading left-to-right to white
+  // Three horizontal bars
+  return `
+    <defs>
+      <linearGradient id="gR" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#FF0000"/>
+        <stop offset="100%" stop-color="#FFFFFF"/>
+      </linearGradient>
+      <linearGradient id="gG" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#00CC00"/>
+        <stop offset="100%" stop-color="#FFFFFF"/>
+      </linearGradient>
+      <linearGradient id="gB" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#0000FF"/>
+        <stop offset="100%" stop-color="#FFFFFF"/>
+      </linearGradient>
+    </defs>
+    <rect x="20" y="40"  width="360" height="80" rx="4" fill="url(#gR)"/>
+    <text x="28" y="88" font-family="Courier New" font-size="18" font-weight="bold" fill="white">RED</text>
+    <text x="356" y="88" font-family="Courier New" font-size="18" font-weight="bold" fill="#FF0000" text-anchor="end">→ WHITE</text>
+
+    <rect x="20" y="155" width="360" height="80" rx="4" fill="url(#gG)"/>
+    <text x="28" y="203" font-family="Courier New" font-size="18" font-weight="bold" fill="white">GREEN</text>
+    <text x="356" y="203" font-family="Courier New" font-size="18" font-weight="bold" fill="#009900" text-anchor="end">→ WHITE</text>
+
+    <rect x="20" y="270" width="360" height="80" rx="4" fill="url(#gB)"/>
+    <text x="28" y="318" font-family="Courier New" font-size="18" font-weight="bold" fill="white">BLUE</text>
+    <text x="356" y="318" font-family="Courier New" font-size="18" font-weight="bold" fill="#0000FF" text-anchor="end">→ WHITE</text>
+
+    <text x="200" y="390" font-family="Courier New" font-size="13" fill="#555" text-anchor="middle">FULL SATURATION → WHITE</text>`;
+}
+
+// ── Sequence ──────────────────────────────────────────────────────────────
+const BD = 500;    // black delimiter
+const SD = 5000;   // scene display duration
+const TD = 3500;   // title card
+
+const scenes = [
+  { fn: scene1, label: 'RGB PRIMARIES  ·  ISOLATED',          tag: 'P1' },
+  { fn: scene2, label: 'RGB PRIMARIES  ·  OVERLAPPED',        tag: 'P2' },
+  { fn: scene3, label: 'SECONDARIES  ·  ISOLATED',            tag: 'S1' },
+  { fn: scene4, label: 'SECONDARIES  ·  OVERLAPPED',          tag: 'S2' },
+  { fn: scene5, label: 'STROOP  ·  SHAPE vs WORD COLOR',      tag: 'ST1' },
+  { fn: scene6, label: 'STROOP  ·  BLOCK vs WORD COLOR',      tag: 'ST2' },
+  { fn: scene7, label: 'GRADIENT  ·  SATURATION → WHITE',     tag: 'GR' },
+];
+
+const seq = [];
+seq.push({ kind: 'title', dur: TD, end: false });
+for (const s of scenes) {
+  seq.push({ kind: 'black', dur: BD });
+  seq.push({ kind: 'scene', dur: SD, ...s });
+}
+seq.push({ kind: 'black', dur: BD });
+seq.push({ kind: 'title', dur: TD, end: true });
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const hudFrame   = document.getElementById('hud-frame');
+const hudTime    = document.getElementById('hud-time');
+const hudBL      = document.getElementById('hud-bl');
+const calSvg     = document.getElementById('cal-svg');
+const sceneLabel = document.getElementById('scene-label');
+const progBar    = document.getElementById('progress-bar');
+const blackOv    = document.getElementById('black-overlay');
+const titleCard  = document.getElementById('title-card');
+const titleMain  = document.querySelector('.t-main');
+const titleSubs  = document.querySelectorAll('.t-sub');
+
+let frameCount = 0;
+let startTs = null;
+let seqIdx = 0;
+let stepStart = null;
+
+function render(ts) {
+  if (!startTs)  startTs  = ts;
+  if (!stepStart) stepStart = ts;
+  if (seqIdx >= seq.length) return;
+
+  const elapsed = ts - startTs;
+  const stepEl  = ts - stepStart;
+
+  frameCount++;
+  hudFrame.textContent = `F: ${String(frameCount).padStart(4,'0')}`;
+  hudTime.textContent  = `T: ${(elapsed/1000).toFixed(3)}s`;
+
+  if (stepEl >= seq[seqIdx].dur) {
+    seqIdx++;
+    stepStart = ts;
+    requestAnimationFrame(render);
+    return;
+  }
+
+  const step     = seq[seqIdx];
+  const progress = Math.min(stepEl / step.dur, 1);
+
+  switch (step.kind) {
+    case 'title':
+      blackOv.style.display   = 'none';
+      titleCard.style.display = 'flex';
+      if (step.end) {
+        titleMain.textContent  = 'CALIBRATION COMPLETE';
+        titleSubs[0].textContent = 'PHASE 2 — 7 COLOR SCENES';
+        titleSubs[1].textContent = 'PRIMARIES · SECONDARIES · STROOP · GRADIENT';
+      }
+      sceneLabel.textContent = '';
+      progBar.style.width = '0%';
+      hudBL.textContent = step.end ? 'SEQ: END' : 'SEQ: INIT';
+      break;
+
+    case 'black':
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'block';
+      sceneLabel.textContent  = '';
+      progBar.style.width     = '0%';
+      hudBL.textContent = 'SEQ: ///';
+      break;
+
+    case 'scene':
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'none';
+      calSvg.innerHTML        = step.fn();
+      sceneLabel.textContent  = step.label;
+      progBar.style.width     = (progress * 100) + '%';
+      hudBL.textContent       = `SEQ: ${step.tag}`;
+      break;
+  }
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

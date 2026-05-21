@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 3 Calibration — Motion</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #outer {
+    width: min(100vw, 56.25vh);
+    height: min(177.78vw, 100vh);
+    background: white;
+    border: 6px solid black;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .hud {
+    position: absolute;
+    font-size: clamp(8px, 1.3vmin, 12px);
+    font-family: 'Courier New', monospace;
+    color: #000;
+    letter-spacing: 0.05em;
+    z-index: 10;
+    line-height: 1.65;
+  }
+  #hud-tl { top: 10px; left: 12px; }
+  #hud-tr { top: 10px; right: 12px; text-align: right; }
+  #hud-bl { bottom: 10px; left: 12px; }
+  #hud-br { bottom: 10px; right: 12px; text-align: right; }
+  #cal {
+    width: 78%;
+    aspect-ratio: 1 / 1;
+    border: 3px solid black;
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  #cal::before, #cal::after {
+    content: ''; position: absolute;
+    width: 12px; height: 12px;
+    border-color: black; border-style: solid;
+    z-index: 20;
+  }
+  #cal::before { top:-3px; left:-3px; border-width:3px 0 0 3px; }
+  #cal::after  { bottom:-3px; right:-3px; border-width:0 3px 3px 0; }
+  #cal-canvas  { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #prog-track  { position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(0,0,0,0.1); z-index:15; }
+  #prog-bar    { height:100%; background:black; width:0%; }
+  #cal-dim     { position:absolute; top:-20px; left:0; font-size:clamp(7px,1vmin,10px); color:#666; letter-spacing:.05em; }
+  #scene-label {
+    margin-top: clamp(6px,1.2vmin,12px);
+    font-size: clamp(9px,1.5vmin,14px);
+    font-weight: bold; letter-spacing:.12em;
+    color: black; text-align:center; min-height:1.4em;
+  }
+  #black-overlay { position:absolute; inset:0; background:black; display:none; z-index:5; }
+  #title-card {
+    position:absolute; inset:0; background:white;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:clamp(4px,.9vmin,9px); z-index:4;
+  }
+  .t-main { font-size:clamp(13px,2.4vmin,20px); font-weight:bold; letter-spacing:.2em; }
+  .t-sub  { font-size:clamp(8px,1.3vmin,12px); letter-spacing:.12em; color:#444; }
+  .t-rule { width:40%; height:1px; background:black; margin:2px 0; }
+  .t-note { font-size:clamp(7px,1.1vmin,10px); letter-spacing:.08em; color:#0077aa; }
+</style>
+</head>
+<body>
+<div id="outer">
+  <div class="hud" id="hud-tl">
+    <div id="hf">F: 0000</div>
+    <div id="ht">T: 0.000s</div>
+  </div>
+  <div class="hud" id="hud-tr"><div>PHASE 3</div><div>MOTION</div></div>
+  <div class="hud" id="hud-bl">
+    <div id="hx">X: +000</div>
+    <div id="hy">Y: +000</div>
+    <div id="hz">Z: +000</div>
+  </div>
+  <div class="hud" id="hud-br"><div id="hwp">—</div><div>2026-05-20</div></div>
+
+  <div id="cal">
+    <div id="cal-dim">CAL AREA — 3D ENVIRONMENT</div>
+    <canvas id="cal-canvas"></canvas>
+    <div id="prog-track"><div id="prog-bar"></div></div>
+  </div>
+  <div id="scene-label"></div>
+
+  <div id="black-overlay"></div>
+  <div id="title-card">
+    <div class="t-main">PHASE 3 CALIBRATION</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">SPATIAL MOTION · 3D ENVIRONMENT</div>
+    <div class="t-sub">SPHERE · KNOWN WAYPOINTS · FLOOR INDICATOR</div>
+    <div class="t-rule"></div>
+    <div class="t-note">+X=RIGHT  +Y=TOP  +Z=FRONT</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">2026-05-20</div>
+  </div>
+</div>
+
+<script>
+// ── Projection ────────────────────────────────────────────────────────────
+const CAM_Z = 2.6;
+let CW, CH, CX, CY, FOV;
+
+function initProj(canvas) {
+  CW = canvas.width; CH = canvas.height;
+  CX = CW / 2;
+  CY = CH * 0.50;
+  FOV = CW * 0.42;
+}
+
+function proj(x, y, z) {
+  const d = CAM_Z - z;
+  return { x: CX + (x * FOV) / d, y: CY - (y * FOV) / d, d };
+}
+
+// ── Room drawing ──────────────────────────────────────────────────────────
+function drawRoom(ctx) {
+  const c = (x,y,z) => proj(x,y,z);
+
+  // Corners
+  const BBL=c(-1,-1,-1), BBR=c(1,-1,-1), BTL=c(-1,1,-1), BTR=c(1,1,-1);
+  const FBL=c(-1,-1, 1), FBR=c(1,-1, 1), FTL=c(-1,1, 1), FTR=c(1,1, 1);
+
+  function quad(a,b,cc,d,fill) {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.lineTo(cc.x,cc.y); ctx.lineTo(d.x,d.y);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // Faces back to front
+  quad(BTL,BTR,BBR,BBL, '#ececec'); // back wall
+  quad(BBL,BBR,FBR,FBL, '#e2e2e2'); // floor
+  quad(BTL,BTR,FTR,FTL, '#f2f2f2'); // ceiling
+  quad(BTL,BBL,FBL,FTL, '#e8e8e8'); // left wall
+  quad(BTR,BBR,FBR,FTR, '#e8e8e8'); // right wall
+
+  const N = 6;
+  // Grid on floor
+  ctx.lineWidth = 0.7;
+  ctx.strokeStyle = 'rgba(0,0,0,0.13)';
+  for (let i=-N; i<=N; i++) {
+    const t=i/N;
+    ln(ctx, c(t,-1,-1), c(t,-1,1));
+    ln(ctx, c(-1,-1,t), c(1,-1,t));
+  }
+  // Grid on back wall
+  for (let i=-N; i<=N; i++) {
+    const t=i/N;
+    ln(ctx, c(-1,t,-1), c(1,t,-1));
+    ln(ctx, c(t,-1,-1), c(t,1,-1));
+  }
+  // Grid on ceiling (lighter)
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  for (let i=-N; i<=N; i++) {
+    const t=i/N;
+    ln(ctx, c(t,1,-1), c(t,1,1));
+    ln(ctx, c(-1,1,t), c(1,1,t));
+  }
+  // Grid on left wall
+  ctx.strokeStyle = 'rgba(0,0,0,0.09)';
+  for (let i=-N; i<=N; i++) {
+    const t=i/N;
+    ln(ctx, c(-1,t,-1), c(-1,t,1));
+    ln(ctx, c(-1,-1,t), c(-1,1,t));
+  }
+  // Grid on right wall
+  for (let i=-N; i<=N; i++) {
+    const t=i/N;
+    ln(ctx, c(1,t,-1), c(1,t,1));
+    ln(ctx, c(1,-1,t), c(1,1,t));
+  }
+
+  // Room edges
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 1.5;
+  // Back wall frame
+  ln(ctx,BTL,BTR); ln(ctx,BTR,BBR); ln(ctx,BBR,BBL); ln(ctx,BBL,BTL);
+  // Front opening
+  ln(ctx,FTL,FTR); ln(ctx,FBL,FBR);
+  // Connecting edges
+  ln(ctx,BTL,FTL); ln(ctx,BTR,FTR); ln(ctx,BBL,FBL); ln(ctx,BBR,FBR);
+
+  // Axis labels on back wall (subtle)
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.font = `${Math.max(8, CW*0.022)}px Courier New`;
+  ctx.textAlign = 'center';
+  const xLbl = proj(0, -1.0, -1.02);
+  const yLbl = proj(-1.05, 0, -1.02);
+  ctx.fillText('← X →', xLbl.x, xLbl.y + CW*0.04);
+  ctx.save(); ctx.translate(yLbl.x - CW*0.03, yLbl.y);
+  ctx.rotate(-Math.PI/2); ctx.fillText('← Y →', 0, 0); ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+function ln(ctx, a, b) {
+  ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+}
+
+// ── Sphere + indicator ────────────────────────────────────────────────────
+function drawSphere(ctx, x, y, z) {
+  const pos   = proj(x, y, z);
+  const floor = proj(x, -1, z);
+  const baseR = 0.115;
+  const r     = baseR * FOV / pos.d;
+  const fr    = baseR * FOV / floor.d * 0.55;
+
+  // Dashed drop line
+  ctx.setLineDash([Math.max(2, r*0.25), Math.max(3, r*0.3)]);
+  ctx.strokeStyle = 'rgba(200,70,10,0.35)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath(); ctx.moveTo(pos.x, pos.y+r); ctx.lineTo(floor.x, floor.y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Floor indicator: circle + crosshair
+  ctx.strokeStyle = 'rgba(200,70,10,0.65)';
+  ctx.fillStyle   = 'rgba(200,70,10,0.15)';
+  ctx.lineWidth   = 1.2;
+  ctx.beginPath(); ctx.arc(floor.x, floor.y, fr, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  const cs = fr * 1.6;
+  ctx.beginPath();
+  ctx.moveTo(floor.x-cs, floor.y); ctx.lineTo(floor.x+cs, floor.y);
+  ctx.moveTo(floor.x, floor.y-cs*0.55); ctx.lineTo(floor.x, floor.y+cs*0.55);
+  ctx.stroke();
+
+  // Sphere gradient
+  const gx = pos.x - r*0.28, gy = pos.y - r*0.28;
+  const grad = ctx.createRadialGradient(gx, gy, r*0.04, pos.x, pos.y, r);
+  grad.addColorStop(0,   '#ffaa77');
+  grad.addColorStop(0.35,'#ff5511');
+  grad.addColorStop(1,   '#991500');
+  ctx.beginPath(); ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = 'rgba(120,20,0,0.55)'; ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Specular highlight
+  const hx=pos.x-r*0.3, hy=pos.y-r*0.3;
+  const hgrad = ctx.createRadialGradient(hx,hy,0,hx,hy,r*0.45);
+  hgrad.addColorStop(0,'rgba(255,255,255,0.55)');
+  hgrad.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
+  ctx.fillStyle=hgrad; ctx.fill();
+}
+
+// ── Easing ────────────────────────────────────────────────────────────────
+function ease(t) {
+  return t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+}
+
+// ── Waypoints + timeline ──────────────────────────────────────────────────
+const WP = [
+  { pos:{x:0,    y:0,    z:0   }, label:'INITIAL · CENTER',       dwell:2200 },
+  { pos:{x:-0.72,y:-0.72,z:-0.72}, label:'BOTTOM · REAR · LEFT',  dwell:2200 },
+  { pos:{x:0.72, y:-0.72,z:-0.72}, label:'BOTTOM · REAR · RIGHT', dwell:2200 },
+  { pos:{x:-0.72,y:0.72, z:0.72},  label:'TOP · FRONT · LEFT',    dwell:2200 },
+  { pos:{x:0.72, y:0.72, z:0.72},  label:'TOP · FRONT · RIGHT',   dwell:2200 },
+  { pos:{x:0,    y:0,    z:0   },  label:'RETURN · CENTER',       dwell:3000 },
+];
+const TRAVEL = 2800;
+
+const TL = []; // flat timeline
+let tt = 0;
+TL.push({ type:'dwell', wi:0, start:tt, end:tt+WP[0].dwell }); tt+=WP[0].dwell;
+for (let i=1; i<WP.length; i++) {
+  TL.push({ type:'travel', from:i-1, to:i, start:tt, end:tt+TRAVEL }); tt+=TRAVEL;
+  TL.push({ type:'dwell', wi:i, start:tt, end:tt+WP[i].dwell }); tt+=WP[i].dwell;
+}
+const ROOM_DUR = tt;
+
+function getRoomState(elapsed) {
+  if (elapsed >= ROOM_DUR) {
+    const w=WP[WP.length-1];
+    return { pos:w.pos, label:w.label, prog:1 };
+  }
+  for (const seg of TL) {
+    if (elapsed>=seg.start && elapsed<seg.end) {
+      const p=(elapsed-seg.start)/(seg.end-seg.start);
+      if (seg.type==='dwell') {
+        return { pos:WP[seg.wi].pos, label:WP[seg.wi].label, prog:1 };
+      } else {
+        const fr=WP[seg.from].pos, to=WP[seg.to].pos, t=ease(p);
+        return {
+          pos:{ x:fr.x+(to.x-fr.x)*t, y:fr.y+(to.y-fr.y)*t, z:fr.z+(to.z-fr.z)*t },
+          label:`→ ${WP[seg.to].label}`,
+          prog:p
+        };
+      }
+    }
+  }
+  return { pos:WP[0].pos, label:WP[0].label, prog:0 };
+}
+
+// ── Outer sequence ────────────────────────────────────────────────────────
+const TD=3500, BD=500;
+// title | black | room | black | endtitle
+let startTs=null, frameCount=0;
+
+const canvas    = document.getElementById('cal-canvas');
+const ctx       = canvas.getContext('2d');
+const blackOv   = document.getElementById('black-overlay');
+const titleCard = document.getElementById('title-card');
+const titleMain = document.querySelector('.t-main');
+const titleSubs = document.querySelectorAll('.t-sub');
+const sceneLabel= document.getElementById('scene-label');
+const progBar   = document.getElementById('prog-bar');
+const hf=document.getElementById('hf'), ht=document.getElementById('ht');
+const hx=document.getElementById('hx'), hy=document.getElementById('hy');
+const hz=document.getElementById('hz'), hwp=document.getElementById('hwp');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = rect.width  * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  initProj({ width: rect.width, height: rect.height });
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ── Main render loop ──────────────────────────────────────────────────────
+function render(ts) {
+  if (!startTs) startTs=ts;
+  const elapsed = ts-startTs;
+  frameCount++;
+
+  hf.textContent = `F: ${String(frameCount).padStart(4,'0')}`;
+  ht.textContent = `T: ${(elapsed/1000).toFixed(3)}s`;
+
+  const t1=TD, t2=t1+BD, t3=t2+ROOM_DUR, t4=t3+BD, t5=t4+TD;
+
+  if (elapsed < t1) {
+    // Title
+    titleCard.style.display='flex'; blackOv.style.display='none';
+    sceneLabel.textContent=''; progBar.style.width='0%';
+    hwp.textContent='SEQ: INIT';
+    hx.textContent='X: ···'; hy.textContent='Y: ···'; hz.textContent='Z: ···';
+
+  } else if (elapsed < t2) {
+    // Black
+    titleCard.style.display='none'; blackOv.style.display='block';
+    sceneLabel.textContent=''; progBar.style.width='0%';
+    hwp.textContent='SEQ: ///';
+
+  } else if (elapsed < t3) {
+    // Room scene
+    titleCard.style.display='none'; blackOv.style.display='none';
+    const roomEl = elapsed-t2;
+    const state  = getRoomState(roomEl);
+    const {pos,label,prog} = state;
+
+    // Draw room
+    ctx.clearRect(0,0,canvas.width/devicePixelRatio,canvas.height/devicePixelRatio);
+    ctx.save();
+    drawRoom(ctx);
+    drawSphere(ctx, pos.x, pos.y, pos.z);
+    ctx.restore();
+
+    sceneLabel.textContent = label;
+    progBar.style.width = (roomEl/ROOM_DUR*100)+'%';
+    hwp.textContent = label.replace('→ ','');
+
+    const fmt = v => (v>=0?'+':'')+String(Math.round(v*100)).padStart(3,' ');
+    hx.textContent = `X: ${fmt(pos.x)}`;
+    hy.textContent = `Y: ${fmt(pos.y)}`;
+    hz.textContent = `Z: ${fmt(pos.z)}`;
+
+  } else if (elapsed < t4) {
+    // Black
+    blackOv.style.display='block';
+    sceneLabel.textContent=''; progBar.style.width='100%';
+    hwp.textContent='SEQ: ///';
+
+  } else {
+    // End title
+    blackOv.style.display='none';
+    titleCard.style.display='flex';
+    titleMain.textContent='CALIBRATION COMPLETE';
+    titleSubs[0].textContent='PHASE 3 — SPATIAL MOTION';
+    titleSubs[1].textContent='6 WAYPOINTS · FLOOR INDICATOR · XYZ LOG';
+    sceneLabel.textContent='';
+    progBar.style.width='100%';
+    hwp.textContent='SEQ: END';
+  }
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

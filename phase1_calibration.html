@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1 Calibration</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Outer crop reference rectangle — full portrait frame */
+  #outer {
+    width: min(100vw, 56.25vh);
+    height: min(177.78vw, 100vh);
+    background: white;
+    border: 6px solid black;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* HUD overlays */
+  .hud {
+    position: absolute;
+    font-size: clamp(9px, 1.4vmin, 13px);
+    font-family: 'Courier New', monospace;
+    color: #000;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  #hud-tl { top: 10px; left: 12px; line-height: 1.6; }
+  #hud-tr { top: 10px; right: 12px; text-align: right; line-height: 1.6; }
+  #hud-bl { bottom: 10px; left: 12px; }
+  #hud-br { bottom: 10px; right: 12px; text-align: right; }
+
+  /* Calibration square — inner known area */
+  #cal {
+    width: 72%;
+    aspect-ratio: 1 / 1;
+    border: 3px solid black;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Corner ticks on cal square */
+  #cal::before, #cal::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: black;
+    border-style: solid;
+  }
+  #cal::before { top: -3px; left: -3px; border-width: 3px 0 0 3px; }
+  #cal::after  { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
+
+  /* Shape SVG */
+  #shape-svg {
+    width: 76%;
+    height: 76%;
+  }
+
+  /* Progress bar at bottom of cal square */
+  #progress-track {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: rgba(0,0,0,0.1);
+  }
+  #progress-bar {
+    height: 100%;
+    background: black;
+    width: 0%;
+    transition: none;
+  }
+
+  /* Shape name label */
+  #shape-name {
+    margin-top: clamp(10px, 2vmin, 18px);
+    font-size: clamp(11px, 1.8vmin, 16px);
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    color: black;
+    text-align: center;
+    min-height: 1.5em;
+  }
+
+  /* Black delimiter overlay */
+  #black-overlay {
+    position: absolute;
+    inset: 0;
+    background: black;
+    display: none;
+    z-index: 5;
+  }
+
+  /* Title card */
+  #title-card {
+    position: absolute;
+    inset: 0;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 1.2vmin, 12px);
+    z-index: 4;
+  }
+  #title-card .t-main {
+    font-size: clamp(14px, 2.6vmin, 22px);
+    font-weight: bold;
+    letter-spacing: 0.2em;
+  }
+  #title-card .t-sub {
+    font-size: clamp(9px, 1.4vmin, 13px);
+    letter-spacing: 0.12em;
+    color: #444;
+  }
+  #title-card .t-rule {
+    width: 40%;
+    height: 1px;
+    background: black;
+    margin: 4px 0;
+  }
+
+  /* Dimension label on cal border */
+  #cal-dim {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: clamp(8px, 1.1vmin, 11px);
+    color: #555;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div id="outer">
+
+  <!-- HUD: top-left -->
+  <div class="hud" id="hud-tl">
+    <div id="hud-frame">F: 0000</div>
+    <div id="hud-time">T: 0.000s</div>
+  </div>
+
+  <!-- HUD: top-right -->
+  <div class="hud" id="hud-tr">
+    <div>PHASE 1</div>
+    <div>B&amp;W / STATIC</div>
+  </div>
+
+  <!-- HUD: bottom-left -->
+  <div class="hud" id="hud-bl" id="hud-seq">SEQ: —</div>
+
+  <!-- HUD: bottom-right -->
+  <div class="hud" id="hud-br" id="hud-date"></div>
+
+  <!-- Calibration area -->
+  <div id="cal">
+    <div id="cal-dim">CAL AREA — KNOWN SQUARE</div>
+    <svg id="shape-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="progress-track"><div id="progress-bar"></div></div>
+  </div>
+
+  <div id="shape-name"></div>
+
+  <!-- Overlays -->
+  <div id="black-overlay"></div>
+  <div id="title-card">
+    <div class="t-main">PHASE 1 CALIBRATION</div>
+    <div class="t-rule"></div>
+    <div class="t-sub">B&amp;W — SOLID + OUTLINE</div>
+    <div class="t-sub">CIRCLE · SQUARE · TRIANGLE · STAR</div>
+    <div class="t-rule"></div>
+    <div class="t-sub" id="tc-date"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── Shape generators ──────────────────────────────────────────────────────
+function starPoints(cx, cy, outerR, innerR, points) {
+  const pts = [];
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (i * Math.PI / points) - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    pts.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+  }
+  return pts.join(' ');
+}
+
+function buildSVG(name, type, rotation) {
+  const fill   = type === 'solid' ? 'black' : 'none';
+  const stroke = 'black';
+  const sw     = type === 'outline' ? 9 : 0;
+  const rot    = rotation || 0;
+
+  let inner = '';
+  switch (name) {
+    case 'CIRCLE':
+      inner = `<circle cx="100" cy="100" r="78" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+      break;
+    case 'SQUARE':
+      inner = `<rect x="18" y="18" width="164" height="164" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+      break;
+    case 'TRIANGLE':
+      inner = `<polygon points="100,12 188,178 12,178" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+      break;
+    case 'STAR':
+      inner = `<polygon points="${starPoints(100,100,86,36,5)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+      break;
+  }
+  return `<g transform="rotate(${rot},100,100)">${inner}</g>`;
+}
+
+// ─── Sequence ──────────────────────────────────────────────────────────────
+const BD = 600;   // black delimiter ms
+const SD = 3200;  // shape display ms
+const TD = 3500;  // title card ms
+const RD = 2200;  // rotation ms
+const RP = 1200;  // rotation pause ms
+
+const shapes = ['CIRCLE','SQUARE','TRIANGLE','STAR'];
+const types  = ['solid','outline'];
+
+const seq = [];
+
+// Title
+seq.push({ kind:'title', dur: TD, end: false });
+
+// Each shape × each type — solid first, then outline, paired per shape
+for (const name of shapes) {
+  for (const type of types) {
+    seq.push({ kind:'black',  dur: BD });
+    seq.push({ kind:'shape',  dur: SD, name, type, label: `${name}  ·  ${type.toUpperCase()}`, seqTag: `${name[0]}${type==='solid'?'S':'O'}` });
+  }
+}
+
+// Rotation sequence (solid star)
+seq.push({ kind:'black', dur: BD });
+seq.push({ kind:'rotpre', dur: 1200, name:'STAR', type:'solid', label:'STAR  ·  SOLID  ·  CLOCKWISE →', seqTag:'R CW' });
+seq.push({ kind:'rotate', dur: RD,   name:'STAR', type:'solid', label:'STAR  ·  CLOCKWISE  →  360°',    seqTag:'R CW', dir: 1 });
+seq.push({ kind:'black', dur: RP });
+seq.push({ kind:'rotpre', dur: 1200, name:'STAR', type:'solid', label:'STAR  ·  SOLID  ·  ← COUNTER-CW', seqTag:'R CCW' });
+seq.push({ kind:'rotate', dur: RD,   name:'STAR', type:'solid', label:'STAR  ·  ← COUNTER-CW  360°',    seqTag:'R CCW', dir: -1 });
+seq.push({ kind:'black', dur: BD });
+
+// End title
+seq.push({ kind:'title', dur: TD, end: true });
+
+// ─── DOM refs ──────────────────────────────────────────────────────────────
+const hudFrame    = document.getElementById('hud-frame');
+const hudTime     = document.getElementById('hud-time');
+const hudSeq      = document.getElementById('hud-bl');
+const hudDate     = document.getElementById('hud-br');
+const shapeSvg    = document.getElementById('shape-svg');
+const shapeName   = document.getElementById('shape-name');
+const progressBar = document.getElementById('progress-bar');
+const blackOv     = document.getElementById('black-overlay');
+const titleCard   = document.getElementById('title-card');
+const tcDate      = document.getElementById('tc-date');
+const titleMain   = document.querySelector('#title-card .t-main');
+const titleSubs   = document.querySelectorAll('#title-card .t-sub');
+
+const dateStr = new Date().toISOString().split('T')[0];
+tcDate.textContent = dateStr;
+hudDate.textContent = dateStr;
+
+// ─── Playback state ────────────────────────────────────────────────────────
+let frameCount = 0;
+let startTs    = null;
+let seqIdx     = 0;
+let stepStart  = null;
+
+function setShape(name, type, rot) {
+  shapeSvg.innerHTML = buildSVG(name, type, rot);
+}
+
+function render(ts) {
+  if (!startTs)  startTs  = ts;
+  if (!stepStart) stepStart = ts;
+
+  const elapsed  = ts - startTs;
+  const stepEl   = ts - stepStart;
+
+  frameCount++;
+  hudFrame.textContent = `F: ${String(frameCount).padStart(4,'0')}`;
+  hudTime.textContent  = `T: ${(elapsed / 1000).toFixed(3)}s`;
+
+  if (seqIdx >= seq.length) return; // done
+
+  const step = seq[seqIdx];
+  const progress = Math.min(stepEl / step.dur, 1);
+
+  // Advance
+  if (stepEl >= step.dur) {
+    seqIdx++;
+    stepStart = ts;
+    requestAnimationFrame(render);
+    return;
+  }
+
+  // Render step
+  switch (step.kind) {
+
+    case 'title':
+      blackOv.style.display  = 'none';
+      titleCard.style.display = 'flex';
+      if (step.end) {
+        titleMain.textContent = 'CALIBRATION COMPLETE';
+        titleSubs[0].textContent = 'PHASE 1 — 8 SHAPES × 2 TYPES';
+        titleSubs[1].textContent = '+ ROTATION SEQUENCE';
+      }
+      shapeName.textContent = '';
+      progressBar.style.width = '0%';
+      hudSeq.textContent = step.end ? 'SEQ: END' : 'SEQ: INIT';
+      break;
+
+    case 'black':
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'block';
+      shapeName.textContent   = '';
+      progressBar.style.width = '0%';
+      hudSeq.textContent = 'SEQ: ///';
+      break;
+
+    case 'shape':
+    case 'rotpre':
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'none';
+      setShape(step.name, step.type, 0);
+      shapeName.textContent   = step.label;
+      progressBar.style.width = (progress * 100) + '%';
+      hudSeq.textContent = `SEQ: ${step.seqTag}`;
+      break;
+
+    case 'rotate': {
+      titleCard.style.display = 'none';
+      blackOv.style.display   = 'none';
+      const deg = step.dir * 360 * progress;
+      setShape(step.name, step.type, deg);
+      const absDeg = Math.abs(Math.round(deg));
+      shapeName.textContent   = step.label.replace('360°', absDeg + '°');
+      progressBar.style.width = (progress * 100) + '%';
+      hudSeq.textContent = `SEQ: ${step.seqTag}  ${absDeg}°`;
+      break;
+    }
+  }
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
