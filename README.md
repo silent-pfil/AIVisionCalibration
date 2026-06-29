@@ -11,3 +11,8 @@ Phase 2 Calibration YouTube short - https://www.youtube.com/shorts/ZUcKnpUvMo8
 Phase 3 Calibration YouTube short - https://www.youtube.com/shorts/sQ_0V3aR5As
 
 -pfil
+
+## License
+No License - Free to use, share with others and think.
+
+
